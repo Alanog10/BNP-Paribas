@@ -57,3 +57,52 @@ def apply_mapping(df, mapping):
     df_out = df_out[cols]
 
     return df_out
+
+
+def map_srec_status(df):
+    """
+    Classifica cada ID_NEW com base no comportamento do SREC:
+
+    - paid_ok   -> SREC sempre 0
+    - paid_less -> existe SREC > 0
+    - paid_more -> existe SREC < 0
+    - mixed     -> existe SREC > 0 e < 0
+    """
+
+    # 1️⃣ Criar flags por ID
+    status = (
+        df
+        .groupby('ID_NEW')['SREC']
+        .agg(
+            has_positive = lambda x: (x > 0).any(),
+            has_negative = lambda x: (x < 0).any()
+        )
+    )
+
+    # 2️⃣ Criar classificação
+    def classify(row):
+        if row['has_positive'] and row['has_negative']:
+            return 'mixed'
+        elif row['has_positive']:
+            return 'paid_less'
+        elif row['has_negative']:
+            return 'paid_more'
+        else:
+            return 'paid_ok'
+
+    status['SREC_STATUS'] = status.apply(classify, axis=1)
+
+    # 3️⃣ Juntar ao dataframe original
+    df_out = df.merge(
+        status[['SREC_STATUS']],
+        left_on='ID_NEW',
+        right_index=True,
+        how='left'
+    )
+
+    return df_out
+
+
+
+
+
